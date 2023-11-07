@@ -5,17 +5,23 @@ import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.Units;
 
-@ConfigGroup("RestingBuff")
+@ConfigGroup("Gielinor Kart")
 public interface RestingBuffConfig extends Config
 {
+	enum Emote {
+		DANCE,
+		RASPBERRY,
+		JOG,
+		BOW,
+	}
+
 	@ConfigItem(
-		keyName = "DreamText",
-		name = "Dream Text",
-		description = "Text that will appear above you when you dream."
+			keyName = "emoteStart",
+			name = "Emote Starter",
+			description = "Determines the emote that you use on the start tile to begin a race."
 	)
-	default boolean dreamtext()
-	{
-		return true;
+	default Emote emote() {
+		return Emote.DANCE;
 	}
 
 	@ConfigItem(

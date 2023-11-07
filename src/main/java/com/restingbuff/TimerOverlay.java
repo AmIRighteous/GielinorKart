@@ -1,10 +1,12 @@
 package com.restingbuff;
 
 import java.awt.*;
-import java.time.Instant;
+import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.ui.FontManager;
@@ -12,43 +14,18 @@ import net.runelite.client.ui.overlay.*;
 import net.runelite.client.ui.overlay.components.LineComponent;
 import net.runelite.client.ui.overlay.components.TitleComponent;
 
-import static net.runelite.api.MenuAction.RUNELITE_OVERLAY;
-
-
-/*TODO:
-*  -Figure out how to display course name in overlay (ex: Lumbridge Bridge)
-*  -Get Timer to count up, not down
-*  -Some kind of minimap display/chat msg to show where you're going
-*  -Timer starts when they emote on tile, end when they reach endpoint
-*  -Config toggle that displays start and end tiles
-*  -Config to allow user specified emote code
-*  -Config for more courses!
-* */
 @Slf4j
 class TimerOverlay extends OverlayPanel
 {
     private final RestingBuffConfig config;
     private final RestingBuffPlugin plugin;
-
     private final LineComponent timeRemainingComponent;
+    public static TitleComponent RUNNING_TITLE = TitleComponent.builder().color(Color.GREEN).text("Timer Running!").build();
+    public static TitleComponent PAUSED_TITLE = TitleComponent.builder().color(Color.WHITE).text("Timer Paused").build();
+    public static TitleComponent FINISHED_TITLE = TitleComponent.builder().color(Color.RED).text("FINISHED!").build();
 
-    private long secondsElapsed;
-
-    private long lastUpdate;
-
-    private boolean loggedIn;
-
-    private boolean timeUp;
-
-    private boolean isPaused;
-
-    public static OverlayMenuEntry PAUSE_ENTRY = new OverlayMenuEntry(RUNELITE_OVERLAY, "Pause", "Timer");
-    public static OverlayMenuEntry START_ENTRY = new OverlayMenuEntry(RUNELITE_OVERLAY, "Start", "Timer");
-    public static OverlayMenuEntry RESET_ENTRY = new OverlayMenuEntry(RUNELITE_OVERLAY, "Reset", "Timer");
-
-    public static TitleComponent PAUSE_TITLE = TitleComponent.builder().color(Color.YELLOW).text("Timer Paused").build();
-    public static TitleComponent START_TITLE = TitleComponent.builder().color(Color.GREEN).text("Timer Running").build();
-    public static TitleComponent TIME_EXPIRED_TITLE = TitleComponent.builder().color(Color.RED).text("Time Expired").build();
+    @Setter
+    public String courseName = "";
 
     @Inject
     private TimerOverlay(RestingBuffConfig config, RestingBuffPlugin plugin)
@@ -58,19 +35,10 @@ class TimerOverlay extends OverlayPanel
         this.config = config;
         this.plugin = plugin;
 
-        getMenuEntries().add(RESET_ENTRY);
-        getMenuEntries().add(START_ENTRY);
 
-        panelComponent.getChildren().add(PAUSE_TITLE);
-
-        timeRemainingComponent = LineComponent.builder().left("Time Remaining:").right("").build();
+        panelComponent.getChildren().add(PAUSED_TITLE);
+        timeRemainingComponent = LineComponent.builder().left("Time:").right("").build();
         panelComponent.getChildren().add(timeRemainingComponent);
-
-        secondsElapsed = getSecondsElapsed();
-        lastUpdate = -1;
-        loggedIn = false;
-        timeUp = false;
-        isPaused = true;
 
         setClearChildren(false);
     }
@@ -78,87 +46,27 @@ class TimerOverlay extends OverlayPanel
     @Override
     public Dimension render(Graphics2D graphics)
     {
+        Duration elapsedTime = plugin.getTimer().getRealTime();
         graphics.setFont(FontManager.getRunescapeFont());
 
-        final long now = Instant.now().getEpochSecond();
-        if(loggedIn && !isPaused && now - lastUpdate >= 1 && !timeUp) {
-            lastUpdate = now;
-            secondsElapsed++;
-
-            if(secondsElapsed % 5 == 0) {
-                plugin.saveSecondsElapsed(secondsElapsed);
-            }
-        }
-        final long timeRemaining = this.config.countdown() * 60 - secondsElapsed;
-        if(timeRemaining <= 0 && !timeUp) timeUp();
-        final Color timeColor =  timeRemaining < 60 ? Color.RED : timeRemaining < 300 ? Color.YELLOW : Color.WHITE;
-
-        timeRemainingComponent.setRightColor(timeColor);
-        timeRemainingComponent.setRight(formatTime(timeRemaining));
-
-        return super.render(graphics);
-    }
-
-    public void reset() {
-        secondsElapsed = 0;
-//        timeUp = false;
-//        getMenuEntries().remove(START_ENTRY);
-//        getMenuEntries().remove(PAUSE_ENTRY);
-//        pauseTimer();
-//        timeRemainingComponent.setRight("");
-    }
-
-    public void pauseTimer() {
-        isPaused = true;
-        addOverlayEntry(START_ENTRY);
-        updateOverlayTitle(PAUSE_TITLE);
-    }
-
-    public void resumeTimer() {
-//        if(timeUp) reset();
-//
-//        isPaused = false;
-//        timeUp = false;
-//        lastUpdate = Instant.now().getEpochSecond();
-//        addOverlayEntry(PAUSE_ENTRY);
-//        updateOverlayTitle(START_TITLE);
-    }
-
-    public void startTimer() {
-
-    }
-
-    private void timeUp() {
-        addOverlayEntry(START_ENTRY);
-        updateOverlayTitle(TIME_EXPIRED_TITLE);
-        timeUp = true;
-    }
-
-    public void setLoggedIn(boolean isLoggedIn) {
-//        loggedIn = isLoggedIn;
-    }
-
-    private void updateOverlayTitle(TitleComponent title) {
         panelComponent.getChildren().clear();
-        panelComponent.getChildren().add(title);
-        panelComponent.getChildren().add(timeRemainingComponent);
-    }
-
-    private void addOverlayEntry(OverlayMenuEntry entry) {
-        getMenuEntries().remove(PAUSE_ENTRY);
-        getMenuEntries().remove(START_ENTRY);
-
-        getMenuEntries().add(entry);
-    }
-
-    private long getSecondsElapsed() {
-        final String savedSeconds = plugin.getSavedSecondsElapsed();
-
-        if(savedSeconds == null ||  savedSeconds.isEmpty()) {
-            return 0;
+        if (!courseName.isEmpty()) {
+            panelComponent.getChildren().add(TitleComponent.builder().color(Color.WHITE).text(courseName).build());
+        }
+        if (plugin.getTimer().isActive()) {
+            panelComponent.getChildren().add(RUNNING_TITLE);
+        } else if (plugin.getTimer().isCompleted()) {
+            panelComponent.getChildren().add(FINISHED_TITLE);
+        }
+        else {
+            panelComponent.getChildren().add(PAUSED_TITLE);
         }
 
-        return Long.parseLong(savedSeconds);
+        final Color timeColor =  Color.WHITE;
+        timeRemainingComponent.setRightColor(timeColor);
+        timeRemainingComponent.setRight(formatTime(elapsedTime.toSeconds()));
+        panelComponent.getChildren().add(timeRemainingComponent);
+        return super.render(graphics);
     }
 
     private static String formatTime(final long remaining)
