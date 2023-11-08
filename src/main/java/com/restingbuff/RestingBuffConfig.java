@@ -25,13 +25,12 @@ public interface RestingBuffConfig extends Config
 	}
 
 	@ConfigItem(
-			keyName = "countdown",
-			name = "Countdown",
-			description = "The time to countdown from based on in-game time"
+			keyName = "showLines",
+			name = "Show Start/Finish lines",
+			description = "Determines if you show the start/finish tiles"
 	)
-	@Units(Units.MINUTES)
-	default int countdown()
-	{
-		return 0;
+	default boolean showLines() {
+		return true;
 	}
+
 }
