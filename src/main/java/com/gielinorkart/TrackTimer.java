@@ -1,4 +1,4 @@
-package com.restingbuff;
+package com.gielinorkart;
 
 import lombok.Getter;
 

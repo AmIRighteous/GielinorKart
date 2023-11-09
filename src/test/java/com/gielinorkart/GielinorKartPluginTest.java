@@ -1,13 +1,13 @@
-package com.restingbuff;
+package com.gielinorkart;
 
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
-public class RestingBuffPluginTest
+public class GielinorKartPluginTest
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(RestingBuffPlugin.class);
+		ExternalPluginManager.loadBuiltin(GielinorKartPlugin.class);
 		RuneLite.main(args);
 	}
 }

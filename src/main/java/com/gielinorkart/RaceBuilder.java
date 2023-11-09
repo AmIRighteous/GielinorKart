@@ -1,4 +1,4 @@
-package com.restingbuff;
+package com.gielinorkart;
 
 import net.runelite.api.coords.WorldPoint;
 import java.util.Collections;
@@ -6,6 +6,7 @@ import java.util.List;
 
 public class RaceBuilder {
 
+    private String _courseName;
     private WorldPoint _start;
     private WorldPoint _end;
     private List<WorldPoint> _checkpoints = Collections.emptyList();
@@ -13,7 +14,7 @@ public class RaceBuilder {
     public RaceBuilder() {}
 
     public Race buildRace() {
-        return new Race(_start, _end, _checkpoints);
+        return new Race(_courseName, _start, _end, _checkpoints);
     }
     public RaceBuilder start(WorldPoint start) {
         this._start = start;
@@ -27,6 +28,11 @@ public class RaceBuilder {
 
     public RaceBuilder checkpoint(List<WorldPoint> checkpoints) {
         this._checkpoints = checkpoints;
+        return this;
+    }
+
+    public RaceBuilder courseName(String courseName) {
+        this._courseName = courseName;
         return this;
     }
 }
