@@ -37,6 +37,8 @@ public class GielinorKartPlugin extends Plugin
 	private TimerOverlay timerOverlay;
 	@Inject
 	private TileMarkersOverlay tileMarkersOverlay;
+	@Inject
+	private TileArrowOverlay tileArrowOverlay;
 	@Getter
 	private TrackTimer timer = new TrackTimer();
 	private WorldPoint lumbridgeStart = new WorldPoint(3223, 3223, 0);
@@ -47,8 +49,9 @@ public class GielinorKartPlugin extends Plugin
 	private WorldPoint lummyCastleCheckOne = new WorldPoint(3206, 3211, 0);
 	private WorldPoint lummyCastleCheckTwo = new WorldPoint(3208, 3238, 0);
 	private Race currRace;
+	private List<WorldPoint> checkpointsVisited = new ArrayList<>();
 
-	public List<Race> races = List.of(
+	public final List<Race> races = List.of(
 			new RaceBuilder().courseName("The Lum Bridge").start(lumbridgeStart).end(alkharidGateEnd).buildRace(),
 			new RaceBuilder().courseName("The Lumbridge Castle").start(lummyCastleStart).end(lummyCastleEnd).checkpoint(List.of(lummyCastleCheckOne, lummyCastleCheckTwo)).buildRace());
 	@Getter
@@ -58,6 +61,7 @@ public class GielinorKartPlugin extends Plugin
 		put(lumbridgeStart, "The Lum Bridge");
 		put(lummyCastleStart, "The Lumbridge Castle");
 	}};
+	private final Map<Race, Long> raceHiScores = new HashMap<>();
 	private final Map<Integer, GielinorKartConfig.Emote> idToEmote = new HashMap<>() {{
 		put(866, GielinorKartConfig.Emote.DANCE);
 		put(2110, GielinorKartConfig.Emote.RASPBERRY);
@@ -70,6 +74,7 @@ public class GielinorKartPlugin extends Plugin
 	{
 		overlayManager.remove(timerOverlay);
 		overlayManager.remove(tileMarkersOverlay);
+		overlayManager.remove(tileArrowOverlay);
 	}
 
 	@Subscribe
@@ -78,10 +83,17 @@ public class GielinorKartPlugin extends Plugin
 		playerLocation = local.getWorldLocation();
 		timer.tick();
 		if (currRace != null) {
-			if (playerLocation.equals(currRace.getEnd())) {
-				timer.stop();
-				sendEndRaceMsg(currRace.getCourseName());
-				currRace = null;
+			if (currRace.getCheckpoints().contains(playerLocation) && !checkpointsVisited.contains(playerLocation)) {
+				checkpointsVisited.add(playerLocation);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Checkpoint "+ checkpointsVisited.size() + ", Split: " + timerOverlay.formatTime(timer.getRealTime().getSeconds()), null);
+			} else if (playerLocation.equals(currRace.getEnd())) {
+				if (checkpointsVisited.size() == currRace.getCheckpoints().size()) {
+					timer.stop();
+					sendEndRaceMsg(currRace.getCourseName());
+					updateHiScores();
+					currRace = null;
+					checkpointsVisited.clear();
+				}
 			}
 		} else {
 			List<Race> tempRace = races.stream().filter(r -> r.getStart().equals(local.getWorldLocation())).collect(Collectors.toList());
@@ -99,8 +111,28 @@ public class GielinorKartPlugin extends Plugin
 		}
 	}
 
+	private void updateHiScores() {
+		long t = timer.getRealTime().getSeconds();
+		if (!raceHiScores.containsKey(currRace) || raceHiScores.get(currRace) > t) {
+			raceHiScores.put(currRace, timer.getRealTime().getSeconds());
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "New Record! Time: " + timerOverlay.formatTime(t), null);
+		} else if (raceHiScores.get(currRace) <= t) {
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Personal Best: " + timerOverlay.formatTime(raceHiScores.get(currRace)), null);
+		}
+	}
+
 	private void sendEndRaceMsg(String courseName) {
 		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Course Completed! "+ courseName+", Time: " + timerOverlay.formatTime(timer.getRealTime().getSeconds()), null);
+	}
+
+	public WorldPoint getNextTile() {
+		if (currRace == null) {
+			return null;
+		} else if (checkpointsVisited.size() < currRace.getCheckpoints().size()) {
+			return currRace.getCheckpoints().get(checkpointsVisited.size());
+		} else {
+			return currRace.getEnd();
+		}
 	}
 
 	@Subscribe
@@ -109,12 +141,34 @@ public class GielinorKartPlugin extends Plugin
 			log.info("overlay has been added");
 			overlayManager.add(timerOverlay);
 			overlayManager.add(tileMarkersOverlay);
+			overlayManager.add(tileArrowOverlay);
+			loadHiScores();
 		} else {
+			saveHiScores();
 			log.info("overlay has been removed");
 			overlayManager.remove(timerOverlay);
 			overlayManager.remove(tileMarkersOverlay);
+			overlayManager.remove(tileArrowOverlay);
 		}
 	}
+
+	private void loadHiScores() {
+		for (Race r: races) {
+			Long hiscore = configManager.getRSProfileConfiguration(GielinorKartConfig.CONFIG_GROUP_NAME, r.getCourseName(), long.class);
+			if (hiscore != null) {
+				raceHiScores.put(r, hiscore);
+			}
+		}
+		log.info("Race hiscores = " + raceHiScores);
+	}
+
+	private void saveHiScores() {
+		for (Race r: raceHiScores.keySet()) {
+			configManager.setRSProfileConfiguration(GielinorKartConfig.CONFIG_GROUP_NAME, r.getCourseName(), raceHiScores.get(r));
+		}
+	}
+
+
 	@Provides
 	GielinorKartConfig provideConfig(ConfigManager configManager)
 	{

@@ -45,7 +45,7 @@ class TimerOverlay extends OverlayPanel
     public Dimension render(Graphics2D graphics)
     {
         if (plugin.getStartToTitle().containsKey(plugin.getPlayerLocation()) || plugin.getTimer().isActive() || plugin.getTimer().isCompleted()) {
-            if (plugin.getStartToTitle().containsKey(plugin.getPlayerLocation())) {
+            if (plugin.getStartToTitle().containsKey(plugin.getPlayerLocation()) && !plugin.getTimer().isActive()) {
                 courseName = plugin.getStartToTitle().get(plugin.getPlayerLocation());
             }
             Duration elapsedTime = plugin.getTimer().getRealTime();
